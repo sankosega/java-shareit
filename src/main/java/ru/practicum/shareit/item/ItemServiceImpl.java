@@ -37,15 +37,7 @@ public class ItemServiceImpl implements ItemService {
         if (!existing.getOwner().getId().equals(userId)) {
             throw new ForbiddenException("Only the owner can edit the item");
         }
-        if (itemDto.getName() != null) {
-            existing.setName(itemDto.getName());
-        }
-        if (itemDto.getDescription() != null) {
-            existing.setDescription(itemDto.getDescription());
-        }
-        if (itemDto.getAvailable() != null) {
-            existing.setAvailable(itemDto.getAvailable());
-        }
+        ItemMapper.updateItemFromDto(existing, itemDto);
         return ItemMapper.toItemDto(itemRepository.update(existing));
     }
 

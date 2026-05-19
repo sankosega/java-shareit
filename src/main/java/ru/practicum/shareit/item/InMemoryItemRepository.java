@@ -5,16 +5,16 @@ import ru.practicum.shareit.item.model.Item;
 
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 @Repository
 public class InMemoryItemRepository implements ItemRepository {
 
-    private final Map<Long, Item> items = new HashMap<>();
+    private final Map<Long, Item> items = new ConcurrentHashMap<>();
     private long idCounter = 1;
 
     @Override

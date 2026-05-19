@@ -26,4 +26,17 @@ public class ItemMapper {
         item.setAvailable(itemDto.getAvailable());
         return item;
     }
+
+    public static Item updateItemFromDto(Item existing, ItemDto itemDto) {
+        if (itemDto.getName() != null) {
+            existing.setName(itemDto.getName());
+        }
+        if (itemDto.getDescription() != null) {
+            existing.setDescription(itemDto.getDescription());
+        }
+        if (itemDto.getAvailable() != null) {
+            existing.setAvailable(itemDto.getAvailable());
+        }
+        return existing;
+    }
 }

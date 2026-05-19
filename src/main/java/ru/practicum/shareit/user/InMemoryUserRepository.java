@@ -3,27 +3,35 @@ package ru.practicum.shareit.user;
 import org.springframework.stereotype.Repository;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Repository
 public class InMemoryUserRepository implements UserRepository {
 
-    private final Map<Long, User> users = new HashMap<>();
+    private final Map<Long, User> users = new ConcurrentHashMap<>();
+    private final Set<String> emails = ConcurrentHashMap.newKeySet();
     private long idCounter = 1;
 
     @Override
     public User save(User user) {
         user.setId(idCounter++);
         users.put(user.getId(), user);
+        emails.add(user.getEmail().toLowerCase());
         return user;
     }
 
     @Override
     public User update(User user) {
+        User old = users.get(user.getId());
+        if (old != null) {
+            emails.remove(old.getEmail().toLowerCase());
+        }
         users.put(user.getId(), user);
+        emails.add(user.getEmail().toLowerCase());
         return user;
     }
 
@@ -39,12 +47,14 @@ public class InMemoryUserRepository implements UserRepository {
 
     @Override
     public void deleteById(Long id) {
-        users.remove(id);
+        User removed = users.remove(id);
+        if (removed != null) {
+            emails.remove(removed.getEmail().toLowerCase());
+        }
     }
 
     @Override
     public boolean existsByEmail(String email) {
-        return users.values().stream()
-                .anyMatch(u -> u.getEmail().equalsIgnoreCase(email));
+        return emails.contains(email.toLowerCase());
     }
 }
