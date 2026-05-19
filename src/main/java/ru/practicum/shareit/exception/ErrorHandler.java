@@ -27,4 +27,10 @@ public class ErrorHandler {
     public Map<String, String> handleForbidden(final ForbiddenException e) {
         return Map.of("error", e.getMessage());
     }
+
+    @ExceptionHandler
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public Map<String, String> handleValidation(final ValidationException e) {
+        return Map.of("error", e.getMessage());
+    }
 }
