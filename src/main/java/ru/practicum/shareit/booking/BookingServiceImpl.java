@@ -1,5 +1,6 @@
 package ru.practicum.shareit.booking;
 
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
@@ -15,7 +16,9 @@ import ru.practicum.shareit.user.User;
 import ru.practicum.shareit.user.UserRepository;
 
 import java.time.LocalDateTime;
+import java.util.EnumMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -28,6 +31,42 @@ public class BookingServiceImpl implements BookingService {
     private final BookingRepository bookingRepository;
     private final ItemRepository itemRepository;
     private final UserRepository userRepository;
+
+    private Map<BookingState, BookingFetchStrategy> bookerStrategies;
+    private Map<BookingState, BookingFetchStrategy> ownerStrategies;
+
+    @PostConstruct
+    private void initStrategies() {
+        bookerStrategies = new EnumMap<>(BookingState.class);
+        bookerStrategies.put(BookingState.ALL,
+                (id, now) -> bookingRepository.findByBooker_Id(id, SORT_BY_START_DESC));
+        bookerStrategies.put(BookingState.CURRENT,
+                (id, now) -> bookingRepository.findByBooker_IdAndStartIsBeforeAndEndIsAfter(
+                        id, now, now, SORT_BY_START_DESC));
+        bookerStrategies.put(BookingState.PAST,
+                (id, now) -> bookingRepository.findByBooker_IdAndEndIsBefore(id, now, SORT_BY_START_DESC));
+        bookerStrategies.put(BookingState.FUTURE,
+                (id, now) -> bookingRepository.findByBooker_IdAndStartIsAfter(id, now, SORT_BY_START_DESC));
+        bookerStrategies.put(BookingState.WAITING,
+                (id, now) -> bookingRepository.findByBooker_IdAndStatus(id, BookingStatus.WAITING, SORT_BY_START_DESC));
+        bookerStrategies.put(BookingState.REJECTED,
+                (id, now) -> bookingRepository.findByBooker_IdAndStatus(id, BookingStatus.REJECTED, SORT_BY_START_DESC));
+
+        ownerStrategies = new EnumMap<>(BookingState.class);
+        ownerStrategies.put(BookingState.ALL,
+                (id, now) -> bookingRepository.findByItem_Owner_Id(id, SORT_BY_START_DESC));
+        ownerStrategies.put(BookingState.CURRENT,
+                (id, now) -> bookingRepository.findByItem_Owner_IdAndStartIsBeforeAndEndIsAfter(
+                        id, now, now, SORT_BY_START_DESC));
+        ownerStrategies.put(BookingState.PAST,
+                (id, now) -> bookingRepository.findByItem_Owner_IdAndEndIsBefore(id, now, SORT_BY_START_DESC));
+        ownerStrategies.put(BookingState.FUTURE,
+                (id, now) -> bookingRepository.findByItem_Owner_IdAndStartIsAfter(id, now, SORT_BY_START_DESC));
+        ownerStrategies.put(BookingState.WAITING,
+                (id, now) -> bookingRepository.findByItem_Owner_IdAndStatus(id, BookingStatus.WAITING, SORT_BY_START_DESC));
+        ownerStrategies.put(BookingState.REJECTED,
+                (id, now) -> bookingRepository.findByItem_Owner_IdAndStatus(id, BookingStatus.REJECTED, SORT_BY_START_DESC));
+    }
 
     @Override
     @Transactional
@@ -81,30 +120,7 @@ public class BookingServiceImpl implements BookingService {
         userRepository.findById(userId)
                 .orElseThrow(() -> new NotFoundException("User not found: " + userId));
         BookingState bookingState = parseState(state);
-        LocalDateTime now = LocalDateTime.now();
-        List<Booking> bookings;
-        switch (bookingState) {
-            case CURRENT:
-                bookings = bookingRepository.findByBooker_IdAndStartIsBeforeAndEndIsAfter(
-                        userId, now, now, SORT_BY_START_DESC);
-                break;
-            case PAST:
-                bookings = bookingRepository.findByBooker_IdAndEndIsBefore(userId, now, SORT_BY_START_DESC);
-                break;
-            case FUTURE:
-                bookings = bookingRepository.findByBooker_IdAndStartIsAfter(userId, now, SORT_BY_START_DESC);
-                break;
-            case WAITING:
-                bookings = bookingRepository.findByBooker_IdAndStatus(
-                        userId, BookingStatus.WAITING, SORT_BY_START_DESC);
-                break;
-            case REJECTED:
-                bookings = bookingRepository.findByBooker_IdAndStatus(
-                        userId, BookingStatus.REJECTED, SORT_BY_START_DESC);
-                break;
-            default:
-                bookings = bookingRepository.findByBooker_Id(userId, SORT_BY_START_DESC);
-        }
+        List<Booking> bookings = bookerStrategies.get(bookingState).fetch(userId, LocalDateTime.now());
         return bookings.stream().map(BookingMapper::toBookingResponseDto).collect(Collectors.toList());
     }
 
@@ -113,30 +129,7 @@ public class BookingServiceImpl implements BookingService {
         userRepository.findById(userId)
                 .orElseThrow(() -> new NotFoundException("User not found: " + userId));
         BookingState bookingState = parseState(state);
-        LocalDateTime now = LocalDateTime.now();
-        List<Booking> bookings;
-        switch (bookingState) {
-            case CURRENT:
-                bookings = bookingRepository.findByItem_Owner_IdAndStartIsBeforeAndEndIsAfter(
-                        userId, now, now, SORT_BY_START_DESC);
-                break;
-            case PAST:
-                bookings = bookingRepository.findByItem_Owner_IdAndEndIsBefore(userId, now, SORT_BY_START_DESC);
-                break;
-            case FUTURE:
-                bookings = bookingRepository.findByItem_Owner_IdAndStartIsAfter(userId, now, SORT_BY_START_DESC);
-                break;
-            case WAITING:
-                bookings = bookingRepository.findByItem_Owner_IdAndStatus(
-                        userId, BookingStatus.WAITING, SORT_BY_START_DESC);
-                break;
-            case REJECTED:
-                bookings = bookingRepository.findByItem_Owner_IdAndStatus(
-                        userId, BookingStatus.REJECTED, SORT_BY_START_DESC);
-                break;
-            default:
-                bookings = bookingRepository.findByItem_Owner_Id(userId, SORT_BY_START_DESC);
-        }
+        List<Booking> bookings = ownerStrategies.get(bookingState).fetch(userId, LocalDateTime.now());
         return bookings.stream().map(BookingMapper::toBookingResponseDto).collect(Collectors.toList());
     }
 
