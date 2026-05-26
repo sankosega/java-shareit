@@ -1,12 +1,12 @@
 package ru.practicum.shareit.booking;
 
-import jakarta.annotation.PostConstruct;
-import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import ru.practicum.shareit.booking.dto.BookingDto;
 import ru.practicum.shareit.booking.dto.BookingResponseDto;
+import ru.practicum.shareit.booking.strategy.BookerBookingSearchStrategy;
+import ru.practicum.shareit.booking.strategy.OwnerBookingSearchStrategy;
 import ru.practicum.shareit.exception.ForbiddenException;
 import ru.practicum.shareit.exception.NotFoundException;
 import ru.practicum.shareit.exception.ValidationException;
@@ -19,10 +19,10 @@ import java.time.LocalDateTime;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Service
-@RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class BookingServiceImpl implements BookingService {
 
@@ -31,41 +31,37 @@ public class BookingServiceImpl implements BookingService {
     private final BookingRepository bookingRepository;
     private final ItemRepository itemRepository;
     private final UserRepository userRepository;
+    private final Map<BookingState, BookerBookingSearchStrategy> bookerStrategies;
+    private final Map<BookingState, OwnerBookingSearchStrategy> ownerStrategies;
 
-    private Map<BookingState, BookingFetchStrategy> bookerStrategies;
-    private Map<BookingState, BookingFetchStrategy> ownerStrategies;
-
-    @PostConstruct
-    private void initStrategies() {
-        bookerStrategies = new EnumMap<>(BookingState.class);
-        bookerStrategies.put(BookingState.ALL,
-                (id, now) -> bookingRepository.findByBooker_Id(id, SORT_BY_START_DESC));
-        bookerStrategies.put(BookingState.CURRENT,
-                (id, now) -> bookingRepository.findByBooker_IdAndStartIsBeforeAndEndIsAfter(
-                        id, now, now, SORT_BY_START_DESC));
-        bookerStrategies.put(BookingState.PAST,
-                (id, now) -> bookingRepository.findByBooker_IdAndEndIsBefore(id, now, SORT_BY_START_DESC));
-        bookerStrategies.put(BookingState.FUTURE,
-                (id, now) -> bookingRepository.findByBooker_IdAndStartIsAfter(id, now, SORT_BY_START_DESC));
-        bookerStrategies.put(BookingState.WAITING,
-                (id, now) -> bookingRepository.findByBooker_IdAndStatus(id, BookingStatus.WAITING, SORT_BY_START_DESC));
-        bookerStrategies.put(BookingState.REJECTED,
-                (id, now) -> bookingRepository.findByBooker_IdAndStatus(id, BookingStatus.REJECTED, SORT_BY_START_DESC));
-
-        ownerStrategies = new EnumMap<>(BookingState.class);
-        ownerStrategies.put(BookingState.ALL,
-                (id, now) -> bookingRepository.findByItem_Owner_Id(id, SORT_BY_START_DESC));
-        ownerStrategies.put(BookingState.CURRENT,
-                (id, now) -> bookingRepository.findByItem_Owner_IdAndStartIsBeforeAndEndIsAfter(
-                        id, now, now, SORT_BY_START_DESC));
-        ownerStrategies.put(BookingState.PAST,
-                (id, now) -> bookingRepository.findByItem_Owner_IdAndEndIsBefore(id, now, SORT_BY_START_DESC));
-        ownerStrategies.put(BookingState.FUTURE,
-                (id, now) -> bookingRepository.findByItem_Owner_IdAndStartIsAfter(id, now, SORT_BY_START_DESC));
-        ownerStrategies.put(BookingState.WAITING,
-                (id, now) -> bookingRepository.findByItem_Owner_IdAndStatus(id, BookingStatus.WAITING, SORT_BY_START_DESC));
-        ownerStrategies.put(BookingState.REJECTED,
-                (id, now) -> bookingRepository.findByItem_Owner_IdAndStatus(id, BookingStatus.REJECTED, SORT_BY_START_DESC));
+    public BookingServiceImpl(BookingRepository bookingRepository,
+                              ItemRepository itemRepository,
+                              UserRepository userRepository,
+                              List<BookerBookingSearchStrategy> bookerStrategyList,
+                              List<OwnerBookingSearchStrategy> ownerStrategyList) {
+        this.bookingRepository = bookingRepository;
+        this.itemRepository = itemRepository;
+        this.userRepository = userRepository;
+        this.bookerStrategies = bookerStrategyList.stream()
+                .collect(Collectors.toMap(
+                        BookerBookingSearchStrategy::getState,
+                        Function.identity(),
+                        (first, second) -> {
+                            throw new IllegalStateException("Duplicate booker strategy for state: "
+                                    + first.getState());
+                        },
+                        () -> new EnumMap<>(BookingState.class)
+                ));
+        this.ownerStrategies = ownerStrategyList.stream()
+                .collect(Collectors.toMap(
+                        OwnerBookingSearchStrategy::getState,
+                        Function.identity(),
+                        (first, second) -> {
+                            throw new IllegalStateException("Duplicate owner strategy for state: "
+                                    + first.getState());
+                        },
+                        () -> new EnumMap<>(BookingState.class)
+                ));
     }
 
     @Override
@@ -120,7 +116,7 @@ public class BookingServiceImpl implements BookingService {
         userRepository.findById(userId)
                 .orElseThrow(() -> new NotFoundException("User not found: " + userId));
         BookingState bookingState = parseState(state);
-        List<Booking> bookings = bookerStrategies.get(bookingState).fetch(userId, LocalDateTime.now());
+        List<Booking> bookings = bookerStrategies.get(bookingState).findBookings(userId, LocalDateTime.now(), SORT_BY_START_DESC);
         return bookings.stream().map(BookingMapper::toBookingResponseDto).collect(Collectors.toList());
     }
 
@@ -129,7 +125,7 @@ public class BookingServiceImpl implements BookingService {
         userRepository.findById(userId)
                 .orElseThrow(() -> new NotFoundException("User not found: " + userId));
         BookingState bookingState = parseState(state);
-        List<Booking> bookings = ownerStrategies.get(bookingState).fetch(userId, LocalDateTime.now());
+        List<Booking> bookings = ownerStrategies.get(bookingState).findBookings(userId, LocalDateTime.now(), SORT_BY_START_DESC);
         return bookings.stream().map(BookingMapper::toBookingResponseDto).collect(Collectors.toList());
     }
 
