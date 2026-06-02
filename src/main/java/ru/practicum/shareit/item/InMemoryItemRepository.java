@@ -1,6 +1,5 @@
 package ru.practicum.shareit.item;
 
-import org.springframework.stereotype.Repository;
 import ru.practicum.shareit.item.model.Item;
 
 import java.util.ArrayList;
@@ -11,38 +10,32 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
-@Repository
-public class InMemoryItemRepository implements ItemRepository {
+public class InMemoryItemRepository {
 
     private final Map<Long, Item> items = new ConcurrentHashMap<>();
     private long idCounter = 1;
 
-    @Override
     public Item save(Item item) {
         item.setId(idCounter++);
         items.put(item.getId(), item);
         return item;
     }
 
-    @Override
     public Item update(Item item) {
         items.put(item.getId(), item);
         return item;
     }
 
-    @Override
     public Optional<Item> findById(Long id) {
         return Optional.ofNullable(items.get(id));
     }
 
-    @Override
     public List<Item> findAllByOwnerId(Long ownerId) {
         return items.values().stream()
                 .filter(i -> i.getOwner() != null && i.getOwner().getId().equals(ownerId))
                 .collect(Collectors.toList());
     }
 
-    @Override
     public List<Item> searchByText(String text) {
         if (text == null || text.isBlank()) {
             return Collections.emptyList();
