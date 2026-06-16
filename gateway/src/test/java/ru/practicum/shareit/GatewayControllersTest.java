@@ -84,6 +84,14 @@ class GatewayControllersTest {
     }
 
     @Test
+    void updateUser_invalidEmail_shouldReturn400() throws Exception {
+        mockMvc.perform(patch("/users/1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"not-an-email\"}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     void updateUser_shouldDelegate() throws Exception {
         mockServer.expect(requestTo(containsString("/users/1")))
                 .andExpect(method(PATCH))
@@ -220,7 +228,6 @@ class GatewayControllersTest {
                 .andRespond(withSuccess("[]", MediaType.APPLICATION_JSON));
 
         mockMvc.perform(get("/items/search")
-                        .header(USER_HEADER, 1L)
                         .param("text", "drill"))
                 .andExpect(status().isOk());
 

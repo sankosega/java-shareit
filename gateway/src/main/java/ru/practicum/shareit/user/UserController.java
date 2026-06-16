@@ -1,6 +1,5 @@
 package ru.practicum.shareit.user;
 
-import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
@@ -27,7 +26,7 @@ public class UserController {
     }
 
     @PatchMapping("/{id}")
-    public ResponseEntity<Object> updateUser(@PathVariable long id, @Valid @RequestBody UserDto userDto) {
+    public ResponseEntity<Object> updateUser(@PathVariable long id, @Validated(UserDto.Update.class) @RequestBody UserDto userDto) {
         return userClient.updateUser(id, userDto);
     }
 

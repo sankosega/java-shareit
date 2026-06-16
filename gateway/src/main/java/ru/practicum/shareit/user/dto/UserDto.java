@@ -16,9 +16,12 @@ public class UserDto {
     private String name;
 
     @NotBlank(message = "Email must not be blank", groups = Create.class)
-    @Email(message = "Email must be valid", groups = Create.class)
+    @Email(message = "Email must be valid", groups = {Create.class, Update.class})
     private String email;
 
     public interface Create {
+    }
+
+    public interface Update {
     }
 }

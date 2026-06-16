@@ -28,6 +28,18 @@ public class BaseClient {
         return makeAndSendRequest(HttpMethod.GET, path, userId, parameters, null);
     }
 
+    protected ResponseEntity<Object> get(String path, @Nullable Map<String, Object> parameters) {
+        HttpEntity<Void> requestEntity = new HttpEntity<>(headersWithoutUser());
+        try {
+            ResponseEntity<Object> response = parameters != null
+                    ? rest.exchange(path, HttpMethod.GET, requestEntity, Object.class, parameters)
+                    : rest.exchange(path, HttpMethod.GET, requestEntity, Object.class);
+            return prepareGatewayResponse(response);
+        } catch (HttpStatusCodeException e) {
+            return ResponseEntity.status(e.getStatusCode()).body(e.getResponseBodyAsByteArray());
+        }
+    }
+
     protected <T> ResponseEntity<Object> post(String path, long userId, T body) {
         return makeAndSendRequest(HttpMethod.POST, path, userId, null, body);
     }
@@ -67,6 +79,13 @@ public class BaseClient {
         headers.setContentType(MediaType.APPLICATION_JSON);
         headers.setAccept(List.of(MediaType.APPLICATION_JSON));
         headers.set("X-Sharer-User-Id", String.valueOf(userId));
+        return headers;
+    }
+
+    private HttpHeaders headersWithoutUser() {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.setAccept(List.of(MediaType.APPLICATION_JSON));
         return headers;
     }
 

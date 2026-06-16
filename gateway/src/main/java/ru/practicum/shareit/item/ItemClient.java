@@ -34,8 +34,8 @@ public class ItemClient extends BaseClient {
         return get(API_PREFIX, userId);
     }
 
-    public ResponseEntity<Object> searchItems(long userId, String text) {
-        return get(API_PREFIX + "/search?text={text}", userId, Map.of("text", text));
+    public ResponseEntity<Object> searchItems(String text) {
+        return get(API_PREFIX + "/search?text={text}", Map.<String, Object>of("text", text));
     }
 
     public ResponseEntity<Object> addComment(long userId, long itemId, CommentDto commentDto) {
