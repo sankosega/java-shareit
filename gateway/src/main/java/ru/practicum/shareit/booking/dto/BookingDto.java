@@ -1,6 +1,5 @@
 package ru.practicum.shareit.booking.dto;
 
-import jakarta.validation.constraints.Future;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -16,10 +15,8 @@ public class BookingDto {
     private Long itemId;
 
     @NotNull(message = "Booking start must not be null")
-    @Future(message = "Booking start must be in the future")
     private LocalDateTime start;
 
     @NotNull(message = "Booking end must not be null")
-    @Future(message = "Booking end must be in the future")
     private LocalDateTime end;
 }
